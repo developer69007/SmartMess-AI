@@ -1,0 +1,320 @@
+// controllers/attendanceController.js
+// QR-based attendance for students using Supabase.
+
+const supabase = require("../config/supabaseClient");
+const Attendance = require("../models/Attendance");
+const Student = require("../models/Student");
+
+const getTodayRange = () => {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  return { start: start.toISOString(), end: end.toISOString() };
+};
+
+const formatAttendance = (rec) => {
+  if (!rec) return null;
+  return {
+    ...rec,
+    _id: rec.id,
+    student: rec.students ? { ...rec.students, _id: rec.student_id } : rec.student_id,
+    mealType: rec.meal_type || rec.mealType,
+    qrToken: rec.qr_token || rec.qrToken || '',
+    verifiedBy: rec.verified_by || rec.verifiedBy,
+    createdAt: rec.created_at || rec.createdAt,
+    updatedAt: rec.updated_at || rec.updatedAt,
+  };
+};
+
+// ---------------------------------------------------------------------------
+// POST /api/attendance/scan — Mark attendance via QR
+// ---------------------------------------------------------------------------
+const markAttendance = async (req, res) => {
+  try {
+    const { mealType, qrToken } = req.body;
+    const studentId = req.user.id || req.user._id;
+
+    if (!mealType) {
+      return res.status(400).json({
+        success: false,
+        message: "Meal type is required (breakfast/lunch/dinner)",
+      });
+    }
+
+    const { start, end } = getTodayRange();
+
+    // Check for duplicate attendance
+    const { data: existing } = await supabase
+      .from(Attendance.TABLE_NAME)
+      .select("*")
+      .eq("student_id", studentId)
+      .gte("date", start)
+      .lte("date", end)
+      .eq("meal_type", mealType)
+      .maybeSingle();
+
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: `You have already marked attendance for ${mealType} today`,
+        attendance: formatAttendance(existing),
+      });
+    }
+
+    const { data: attendance, error } = await supabase
+      .from(Attendance.TABLE_NAME)
+      .insert({
+        student_id: studentId,
+        date: new Date().toISOString(),
+        meal_type: mealType,
+        qr_token: qrToken || "",
+        status: "present",
+      })
+      .select("*")
+      .single();
+
+    if (error) {
+      if (error.code === "23505") {
+        return res.status(409).json({
+          success: false,
+          message: "Attendance already marked for this meal today",
+        });
+      }
+      return res.status(500).json({ success: false, message: error.message });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Attendance marked for ${mealType}`,
+      attendance: formatAttendance(attendance),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/attendance/my — Student's own attendance history
+// ---------------------------------------------------------------------------
+const getMyAttendance = async (req, res) => {
+  try {
+    const studentId = req.user.id || req.user._id;
+    const limit = parseInt(req.query.limit) || 30;
+
+    const { data: records, error } = await supabase
+      .from(Attendance.TABLE_NAME)
+      .select("*")
+      .eq("student_id", studentId)
+      .order("date", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+
+    const formattedRecords = (records || []).map(formatAttendance);
+    const totalPresent = formattedRecords.filter((r) => r.status === "present").length;
+    const percentage =
+      formattedRecords.length > 0
+        ? Math.round((totalPresent / formattedRecords.length) * 100)
+        : 0;
+
+    res.status(200).json({
+      success: true,
+      count: formattedRecords.length,
+      totalPresent,
+      attendancePercentage: percentage,
+      records: formattedRecords,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/attendance/daily — Today's full attendance report
+// ---------------------------------------------------------------------------
+const getDailyAttendance = async (req, res) => {
+  try {
+    const { start, end } = getTodayRange();
+    let query = supabase
+      .from(Attendance.TABLE_NAME)
+      .select("*, students(name, email)")
+      .gte("date", start)
+      .lte("date", end)
+      .order("created_at", { ascending: false });
+
+    if (req.query.mealType) {
+      query = query.eq("meal_type", req.query.mealType);
+    }
+
+    const { data: records, error } = await query;
+
+    if (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+
+    const formatted = (records || []).map(formatAttendance);
+
+    const summary = {
+      breakfast: formatted.filter((r) => r.mealType === "breakfast").length,
+      lunch: formatted.filter((r) => r.mealType === "lunch").length,
+      dinner: formatted.filter((r) => r.mealType === "dinner").length,
+      total: formatted.length,
+    };
+
+    res.status(200).json({
+      success: true,
+      date: new Date().toDateString(),
+      summary,
+      count: formatted.length,
+      records: formatted,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/attendance/analytics — Weekly attendance trend for charts
+// ---------------------------------------------------------------------------
+const getAttendanceAnalytics = async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 7;
+    const { count: totalStudents } = await supabase
+      .from(Student.TABLE_NAME)
+      .select("id", { count: "exact", head: true });
+
+    const totalStudentCount = totalStudents || 0;
+    const result = [];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    for (let i = days - 1; i >= 0; i--) {
+      const day = new Date();
+      day.setDate(day.getDate() - i);
+      day.setHours(0, 0, 0, 0);
+
+      const dayEnd = new Date(day);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const { count } = await supabase
+        .from(Attendance.TABLE_NAME)
+        .select("id", { count: "exact", head: true })
+        .gte("date", day.toISOString())
+        .lte("date", dayEnd.toISOString())
+        .eq("status", "present");
+
+      const attendanceCount = count || 0;
+      const percentage =
+        totalStudentCount > 0
+          ? Math.round((attendanceCount / totalStudentCount) * 100)
+          : 0;
+
+      result.push({
+        day: dayNames[day.getDay()],
+        date: day.toISOString().split("T")[0],
+        count: attendanceCount,
+        totalStudents: totalStudentCount,
+        percentage,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      days: result,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/attendance/verify/:qrToken — Staff verifies a student's QR code
+// ---------------------------------------------------------------------------
+const verifyQRAttendance = async (req, res) => {
+  try {
+    const { qrToken } = req.params;
+    const { mealType } = req.query;
+
+    let studentId;
+    try {
+      const decoded = Buffer.from(qrToken, "base64").toString("utf8");
+      const parts = decoded.split("_");
+      studentId = parts[0];
+    } catch {
+      return res.status(400).json({ success: false, message: "Invalid QR token" });
+    }
+
+    const { data: student } = await supabase
+      .from(Student.TABLE_NAME)
+      .select("id, name, email")
+      .eq("id", studentId)
+      .maybeSingle();
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student not found" });
+    }
+
+    const { start, end } = getTodayRange();
+    const effectiveMealType = mealType || "lunch";
+
+    const { data: existing } = await supabase
+      .from(Attendance.TABLE_NAME)
+      .select("*")
+      .eq("student_id", studentId)
+      .gte("date", start)
+      .lte("date", end)
+      .eq("meal_type", effectiveMealType)
+      .maybeSingle();
+
+    const formattedStudent = { ...student, _id: student.id };
+
+    if (existing) {
+      return res.status(200).json({
+        success: true,
+        verified: true,
+        alreadyMarked: true,
+        student: formattedStudent,
+        attendance: formatAttendance(existing),
+        message: "Student already attended this meal",
+      });
+    }
+
+    const { data: attendance, error } = await supabase
+      .from(Attendance.TABLE_NAME)
+      .insert({
+        student_id: studentId,
+        date: new Date().toISOString(),
+        meal_type: effectiveMealType,
+        qr_token: qrToken,
+        status: "present",
+        verified_by: req.user ? (req.user.id || req.user._id) : null,
+      })
+      .select("*")
+      .single();
+
+    if (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+
+    res.status(201).json({
+      success: true,
+      verified: true,
+      alreadyMarked: false,
+      student: formattedStudent,
+      attendance: formatAttendance(attendance),
+      message: "Attendance verified and marked successfully",
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+module.exports = {
+  markAttendance,
+  getMyAttendance,
+  getDailyAttendance,
+  getAttendanceAnalytics,
+  verifyQRAttendance,
+};
