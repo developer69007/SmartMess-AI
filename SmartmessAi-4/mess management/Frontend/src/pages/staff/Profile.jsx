@@ -139,6 +139,25 @@ export default function StaffProfile() {
               </div>
             </div>
           ))}
+
+          {/* Assigned Staff Duty QR Code */}
+          <div className="pt-5 border-t border-slate-100 flex flex-col items-center text-center">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+              Staff Official Duty & Counter Pass
+            </p>
+            <div className="p-3 bg-white border-2 border-teal-400 rounded-2xl shadow-sm inline-block">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+                  btoa(`STAFF_${profile?.id || user?.id || "EMP001"}_DUTY`)
+                )}`}
+                alt="Staff Duty Pass QR"
+                className="w-32 h-32 rounded-lg"
+              />
+            </div>
+            <p className="text-[11px] font-mono text-slate-400 mt-2">
+              Staff ID: {profile?.id || user?.id || "EMP001"} · Verified Staff
+            </p>
+          </div>
         </div>
 
         <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
