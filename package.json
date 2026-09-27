@@ -6,5 +6,15 @@
     "vercel-build": "cd \"SmartmessAi-4/mess management/Frontend\" && npm install && npm run build",
     "build": "cd \"SmartmessAi-4/mess management/Frontend\" && npm run build",
     "start": "cd \"SmartmessAi-4/mess management/Backend\" && npm start"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.0",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^10.0.10",
+    "pg": "^8.23.0"
   }
 }

@@ -1,18 +1,14 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "SmartmessAi-4/mess management/Frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    },
-    {
-      "src": "api/index.js",
-      "use": "@vercel/node"
+  "buildCommand": "cd \"SmartmessAi-4/mess management/Frontend\" && npm install && npm run build",
+  "outputDirectory": "SmartmessAi-4/mess management/Frontend/dist",
+  "installCommand": "npm install",
+  "framework": null,
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "SmartmessAi-4/mess management/Backend/**"
     }
-  ],
+  },
   "routes": [
     {
       "src": "/api/(.*)",
@@ -23,7 +19,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "SmartmessAi-4/mess management/Frontend/dist/index.html"
+      "dest": "/index.html"
     }
   ]
 }
