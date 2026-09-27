@@ -4,7 +4,7 @@
 const supabase = require("../config/supabaseClient");
 const Attendance = require("../models/Attendance");
 const Student = require("../models/Student");
-const Menu = require("../models/Menu");
+const MessMenu = require("../models/MessMenu");
 const emailService = require("../services/emailService");
 
 const getTodayRange = () => {
@@ -34,7 +34,7 @@ const fetchTodaysMenu = async () => {
   try {
     const todayStr = new Date().toISOString().split("T")[0];
     const { data } = await supabase
-      .from(Menu.TABLE_NAME)
+      .from(MessMenu.TABLE_NAME)
       .select("*")
       .eq("date", todayStr)
       .maybeSingle();
