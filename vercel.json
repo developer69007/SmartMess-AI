@@ -9,21 +9,21 @@
       }
     },
     {
-      "src": "SmartmessAi-4/mess management/Backend/server.js",
+      "src": "api/index.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "SmartmessAi-4/mess management/Backend/server.js"
+      "dest": "/api/index.js"
     },
     {
       "handle": "filesystem"
     },
     {
       "src": "/(.*)",
-      "dest": "SmartmessAi-4/mess management/Frontend/dist/$1"
+      "dest": "SmartmessAi-4/mess management/Frontend/dist/index.html"
     }
   ]
 }
