@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
+import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Bell, ChevronDown } from "lucide-react";
 
@@ -20,9 +23,17 @@ const notifications = [
   },
 ];
 
-export default function Topbar({ studentName = "Yashashvi" }) {
+export default function Topbar({ studentName = "Student" }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    toast.success("Logged out successfully");
+    navigate("/login");
+  };
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-slate-200/70 bg-white/70 px-6 py-4 backdrop-blur-xl">
@@ -137,13 +148,31 @@ export default function Topbar({ studentName = "Yashashvi" }) {
                 transition={{ duration: 0.18, ease: "easeOut" }}
                 className="absolute right-0 mt-2 w-44 overflow-hidden rounded-2xl border border-slate-200/70 bg-white/95 shadow-xl shadow-slate-900/10 backdrop-blur-xl"
               >
-                <button className="w-full px-4 py-2.5 text-left text-sm text-slate-600 transition-colors duration-150 hover:bg-emerald-50/60">
+                <button
+                  onClick={() => {
+                    setProfileOpen(false);
+                    navigate("/student/profile");
+                  }}
+                  className="w-full px-4 py-2.5 text-left text-sm text-slate-600 transition-colors duration-150 hover:bg-emerald-50/60"
+                >
                   My Profile
                 </button>
-                <button className="w-full px-4 py-2.5 text-left text-sm text-slate-600 transition-colors duration-150 hover:bg-emerald-50/60">
+                <button
+                  onClick={() => {
+                    setProfileOpen(false);
+                    navigate("/student/settings");
+                  }}
+                  className="w-full px-4 py-2.5 text-left text-sm text-slate-600 transition-colors duration-150 hover:bg-emerald-50/60"
+                >
                   Settings
                 </button>
-                <button className="w-full border-t border-slate-100 px-4 py-2.5 text-left text-sm text-red-500 transition-colors duration-150 hover:bg-red-50">
+                <button
+                  onClick={() => {
+                    setProfileOpen(false);
+                    handleLogout();
+                  }}
+                  className="w-full border-t border-slate-100 px-4 py-2.5 text-left text-sm text-red-500 transition-colors duration-150 hover:bg-red-50"
+                >
                   Logout
                 </button>
               </motion.div>

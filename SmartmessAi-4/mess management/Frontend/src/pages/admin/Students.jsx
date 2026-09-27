@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Users, Search, Plus, Trash2, Edit3, Loader2,
-  Mail, GraduationCap, RefreshCw, X, CheckCircle2
+  Mail, GraduationCap, RefreshCw, X, CheckCircle2, QrCode, Download, Printer
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -51,6 +51,7 @@ export default function Students() {
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editStudent, setEditStudent] = useState(null);
+  const [qrModalStudent, setQrModalStudent] = useState(null);
   const [form, setForm] = useState({ name: "", email: "", registrationNumber: "", password: "" });
   const [submitting, setSubmitting] = useState(false);
 
@@ -259,13 +260,22 @@ export default function Students() {
                     <td className="px-5 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
+                          onClick={() => setQrModalStudent(student)}
+                          title="View & Print Student QR Code"
+                          className="rounded-lg border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-700 hover:bg-emerald-100 transition-all"
+                        >
+                          <QrCode className="w-3.5 h-3.5" />
+                        </button>
+                        <button
                           onClick={() => openEdit(student)}
+                          title="Edit Student"
                           className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-all"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleDelete(student._id, student.name)}
+                          title="Delete Student"
                           className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -337,6 +347,54 @@ export default function Students() {
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
           </button>
         </form>
+      </Modal>
+
+      {/* Real QR Code Viewer Modal */}
+      <Modal open={!!qrModalStudent} title="Student QR Pass (Real Scannable)" onClose={() => setQrModalStudent(null)}>
+        {qrModalStudent && (
+          <div className="flex flex-col items-center text-center space-y-4">
+            <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl shadow-inner flex flex-col items-center">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+                  btoa(`${qrModalStudent._id || qrModalStudent.id}_lunch_${Date.now()}`)
+                )}`}
+                alt="Student Real QR Code"
+                className="w-48 h-48 rounded-xl shadow-md bg-white p-2"
+              />
+              <p className="mt-3 text-xs font-mono font-semibold text-emerald-800">
+                Token: {btoa(`${qrModalStudent._id || qrModalStudent.id}_lunch_${Date.now()}`).slice(0, 16)}...
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <h4 className="font-bold text-slate-800 text-base">{qrModalStudent.name}</h4>
+              <p className="text-xs text-slate-500">{qrModalStudent.email}</p>
+              <p className="text-xs font-mono text-emerald-600">
+                Reg No: {qrModalStudent.registrationNumber || qrModalStudent.registration_number || "SRM2026-REG"}
+              </p>
+            </div>
+
+            <div className="flex gap-2 w-full pt-2">
+              <a
+                href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(
+                  btoa(`${qrModalStudent._id || qrModalStudent.id}_lunch_${Date.now()}`)
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                download={`${qrModalStudent.name}_QR_Pass.png`}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" /> Download QR
+              </a>
+              <button
+                onClick={() => window.print()}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-semibold hover:shadow-md transition-all"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print Pass
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

@@ -23,11 +23,11 @@ export default function QRCard({ studentId = "SRM24CSE0187", onScan, delay = 0 }
         </p>
       </div>
 
-      {/* QR illustration */}
+      {/* Real QR image */}
       <motion.div
         whileHover={{ scale: 1.03 }}
         transition={{ type: "spring", stiffness: 300, damping: 20 }}
-        className="relative mt-5 flex h-44 w-44 items-center justify-center rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4 shadow-inner"
+        className="relative mt-5 flex h-44 w-44 items-center justify-center rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-2 shadow-inner"
       >
         {/* scan line animation */}
         <motion.div
@@ -39,12 +39,14 @@ export default function QRCard({ studentId = "SRM24CSE0187", onScan, delay = 0 }
             repeatType: "reverse",
             ease: "easeInOut",
           }}
-          className="absolute left-4 right-4 h-0.5 rounded-full bg-gradient-to-r from-transparent via-emerald-500 to-transparent"
+          className="absolute left-4 right-4 h-0.5 rounded-full bg-gradient-to-r from-transparent via-emerald-500 to-transparent z-10"
         />
-        <QrCode
-          size={128}
-          strokeWidth={1.1}
-          className="text-emerald-600"
+        <img
+          src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+            btoa(`${studentId}_lunch`)
+          )}`}
+          alt="Scannable Student QR Code"
+          className="w-36 h-36 rounded-xl bg-white p-1"
         />
       </motion.div>
 

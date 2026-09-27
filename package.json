@@ -1,0 +1,9 @@
+{
+  "name": "smartmess-ai-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd \"SmartmessAi-4/mess management/Frontend\" && npm run build",
+    "start": "cd \"SmartmessAi-4/mess management/Backend\" && npm start"
+  }
+}

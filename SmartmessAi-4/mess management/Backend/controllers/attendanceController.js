@@ -4,6 +4,8 @@
 const supabase = require("../config/supabaseClient");
 const Attendance = require("../models/Attendance");
 const Student = require("../models/Student");
+const Menu = require("../models/Menu");
+const emailService = require("../services/emailService");
 
 const getTodayRange = () => {
   const start = new Date();
@@ -25,6 +27,21 @@ const formatAttendance = (rec) => {
     createdAt: rec.created_at || rec.createdAt,
     updatedAt: rec.updated_at || rec.updatedAt,
   };
+};
+
+// Helper to fetch today's menu for email notification
+const fetchTodaysMenu = async () => {
+  try {
+    const todayStr = new Date().toISOString().split("T")[0];
+    const { data } = await supabase
+      .from(Menu.TABLE_NAME)
+      .select("*")
+      .eq("date", todayStr)
+      .maybeSingle();
+    return data || null;
+  } catch {
+    return null;
+  }
 };
 
 // ---------------------------------------------------------------------------
@@ -83,6 +100,24 @@ const markAttendance = async (req, res) => {
       }
       return res.status(500).json({ success: false, message: error.message });
     }
+
+    // Trigger confirmation email with today's menu
+    (async () => {
+      try {
+        const studentObj = req.user;
+        const menuData = await fetchTodaysMenu();
+        if (studentObj && studentObj.email) {
+          await emailService.sendAttendanceConfirmationEmail({
+            name: studentObj.name,
+            email: studentObj.email,
+            mealType: mealType,
+            menu: menuData,
+          });
+        }
+      } catch (e) {
+        console.error("Failed to send attendance confirmation email:", e);
+      }
+    })();
 
     res.status(201).json({
       success: true,
@@ -297,6 +332,23 @@ const verifyQRAttendance = async (req, res) => {
     if (error) {
       return res.status(500).json({ success: false, message: error.message });
     }
+
+    // Trigger confirmation email with today's menu
+    (async () => {
+      try {
+        const menuData = await fetchTodaysMenu();
+        if (student && student.email) {
+          await emailService.sendAttendanceConfirmationEmail({
+            name: student.name,
+            email: student.email,
+            mealType: effectiveMealType,
+            menu: menuData,
+          });
+        }
+      } catch (e) {
+        console.error("Failed to send verification confirmation email:", e);
+      }
+    })();
 
     res.status(201).json({
       success: true,

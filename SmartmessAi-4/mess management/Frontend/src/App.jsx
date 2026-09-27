@@ -23,6 +23,8 @@ import Feedback from "./pages/student/Feedback";
 import StudentProfile from "./pages/student/Profile";
 import StudentSettings from "./pages/student/Settings";
 
+import StaffLayout from "./layouts/StaffLayout";
+
 // ================= Staff =================
 import StaffDashboard from "./pages/staff/StaffDashboard";
 import StaffAttendance from "./pages/staff/Attendance";
@@ -69,14 +71,17 @@ function App() {
       </Route>
 
       {/* ================= Staff Dashboard ================= */}
-      <Route path="/staff/dashboard" element={<StaffDashboard />} />
-      <Route path="/staff/attendance" element={<StaffAttendance />} />
-      <Route path="/staff/kitchen-status" element={<KitchenStatus />} />
-      <Route path="/staff/qr-verification" element={<QRVerification />} />
-      <Route path="/staff/meal-management" element={<MealManagement />} />
-      <Route path="/staff/profile" element={<StaffProfile />} />
-      <Route path="/staff/reports" element={<StaffReports />} />
-      <Route path="/staff/settings" element={<StaffSettings />} />
+      <Route element={<StaffLayout />}>
+        <Route path="/staff" element={<Navigate to="/staff/dashboard" replace />} />
+        <Route path="/staff/dashboard" element={<StaffDashboard />} />
+        <Route path="/staff/attendance" element={<StaffAttendance />} />
+        <Route path="/staff/kitchen-status" element={<KitchenStatus />} />
+        <Route path="/staff/qr-verification" element={<QRVerification />} />
+        <Route path="/staff/meal-management" element={<MealManagement />} />
+        <Route path="/staff/profile" element={<StaffProfile />} />
+        <Route path="/staff/reports" element={<StaffReports />} />
+        <Route path="/staff/settings" element={<StaffSettings />} />
+      </Route>
 
       {/* ================= Admin Dashboard ================= */}
       <Route element={<AdminLayout />}>

@@ -32,7 +32,7 @@ export default function QRScanner() {
       const qrToken = btoa(`${studentId}_${mealType}_${Date.now()}`);
       const data = await attendanceService.markAttendance(mealType, qrToken);
       if (data.success) {
-        toast.success(`✅ ${mealType.charAt(0).toUpperCase() + mealType.slice(1)} attendance marked!`);
+        toast.success(`✅ ${mealType.charAt(0).toUpperCase() + mealType.slice(1)} attendance marked! Today's menu email sent.`);
         setLastMarked({ mealType, time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) });
       }
     } catch (err) {
@@ -62,17 +62,15 @@ export default function QRScanner() {
           transition={{ duration: 0.4 }}
           className="rounded-3xl border border-emerald-200 bg-white p-6 text-center shadow-lg shadow-emerald-100"
         >
-          {/* Simulated QR grid */}
-          <div className="mx-auto mb-4 w-44 h-44 rounded-2xl border-2 border-emerald-400 flex items-center justify-center bg-emerald-50 relative overflow-hidden">
-            <div className="absolute inset-0 grid grid-cols-8 gap-[2px] p-2 opacity-30">
-              {Array.from({ length: 64 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`rounded-[1px] ${Math.random() > 0.5 ? "bg-emerald-700" : "bg-transparent"}`}
-                />
-              ))}
-            </div>
-            <QrCode className="w-20 h-20 text-emerald-600 relative z-10" />
+          {/* Real Scannable QR Code */}
+          <div className="mx-auto mb-4 w-48 h-48 rounded-2xl border-2 border-emerald-400 flex flex-col items-center justify-center bg-white p-2.5 shadow-md relative overflow-hidden">
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+                btoa(`${studentId}_${mealType}_${Date.now()}`)
+              )}`}
+              alt="Real Scannable QR Code"
+              className="w-40 h-40 object-contain rounded-lg"
+            />
           </div>
 
           <div className="space-y-1 mb-5">

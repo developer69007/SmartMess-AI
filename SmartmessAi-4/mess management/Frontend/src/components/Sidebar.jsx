@@ -1,4 +1,6 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
+import toast from "react-hot-toast";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard,
@@ -79,6 +81,15 @@ function SidebarLink({ item, index }) {
 }
 
 export default function Sidebar() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    toast.success("Logged out successfully");
+    navigate("/login");
+  };
+
   return (
     <aside className="flex h-screen w-64 flex-col border-r border-slate-200/70 bg-white/70 backdrop-blur-xl">
       {/* Logo */}
@@ -103,6 +114,7 @@ export default function Sidebar() {
         <motion.button
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.98 }}
+          onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-500 transition-colors duration-200 hover:bg-red-50 hover:text-red-600"
         >
           <LogOut size={19} strokeWidth={2} />

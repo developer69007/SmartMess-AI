@@ -419,7 +419,10 @@ export default function StaffDashboard() {
               <div className="lg:col-span-2 rounded-3xl bg-white/80 backdrop-blur-xl border border-white/60 p-6 shadow-lg shadow-slate-200/50">
                 <div className="flex items-center justify-between mb-5">
                   <h2 className="text-lg font-semibold text-slate-800">Today's Menu</h2>
-                  <button className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-3.5 py-2 text-xs font-semibold text-white shadow-md hover:shadow-lg transition-shadow">
+                  <button
+                    onClick={() => navigate("/staff/meal-management")}
+                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-3.5 py-2 text-xs font-semibold text-white shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+                  >
                     <Pencil className="h-3.5 w-3.5" />
                     Edit Menu
                   </button>
@@ -460,7 +463,10 @@ export default function StaffDashboard() {
                   <QrCode className="h-8 w-8 text-white" />
                 </div>
                 <h2 className="text-lg font-semibold text-slate-800 mb-4">QR Verification</h2>
-                <button className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl transition-shadow mb-5">
+                <button
+                  onClick={() => navigate("/staff/qr-verification")}
+                  className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl transition-shadow mb-5 cursor-pointer"
+                >
                   <ScanLine className="h-4 w-4" />
                   Open QR Scanner
                 </button>
@@ -546,10 +552,16 @@ export default function StaffDashboard() {
             <div>
               <h2 className="text-lg font-semibold text-slate-800 mb-4">Quick Actions</h2>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-                {quickActions.map(({ label, icon: Icon, gradient }) => (
+                {[
+                  { label: "Prepare Meal", icon: UtensilsCrossed, gradient: "from-emerald-500 to-teal-500", path: "/staff/meal-management" },
+                  { label: "Verify QR", icon: ScanLine, gradient: "from-teal-500 to-cyan-500", path: "/staff/qr-verification" },
+                  { label: "Update Inventory", icon: Package, gradient: "from-cyan-500 to-emerald-500", path: "/staff/meal-management" },
+                  { label: "View Reports", icon: FileBarChart, gradient: "from-emerald-600 to-teal-600", path: "/staff/reports" },
+                ].map(({ label, icon: Icon, gradient, path }) => (
                   <button
                     key={label}
-                    className="group flex flex-col items-center gap-3 rounded-3xl bg-white/80 backdrop-blur-xl border border-white/60 p-6 shadow-lg shadow-slate-200/50 hover:-translate-y-1 hover:shadow-xl transition-all duration-300"
+                    onClick={() => navigate(path)}
+                    className="group flex flex-col items-center gap-3 rounded-3xl bg-white/80 backdrop-blur-xl border border-white/60 p-6 shadow-lg shadow-slate-200/50 hover:-translate-y-1 hover:shadow-xl transition-all duration-300 cursor-pointer"
                   >
                     <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
                       <Icon className="h-6 w-6 text-white" />
