@@ -90,9 +90,8 @@ export default function Feedback() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-emerald-50/30">
-      <main className="px-4 py-6 sm:px-6 sm:py-8 lg:px-8 max-w-2xl mx-auto space-y-8">
-        {/* Header */}
+    <div className="max-w-2xl mx-auto space-y-8">
+      {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Meal Feedback</h1>
           <p className="mt-1 text-sm text-slate-400">Rate your meals and help improve the mess quality</p>
@@ -231,7 +230,6 @@ export default function Feedback() {
             </div>
           )}
         </div>
-      </main>
     </div>
   );
 }

@@ -45,7 +45,7 @@ const fetchTodaysMenu = async () => {
 };
 
 // ---------------------------------------------------------------------------
-// POST /api/attendance/scan — Mark attendance via QR
+// POST /api/attendance/scan — Mark attendance via QR (Student self-mark)
 // ---------------------------------------------------------------------------
 const markAttendance = async (req, res) => {
   try {
@@ -57,6 +57,23 @@ const markAttendance = async (req, res) => {
         success: false,
         message: "Meal type is required (breakfast/lunch/dinner)",
       });
+    }
+
+    // Anti-proxy validation: If a QR token is supplied, verify it belongs strictly to this logged-in student
+    if (qrToken) {
+      try {
+        const decoded = Buffer.from(qrToken, "base64").toString("utf8");
+        const parts = decoded.split("_");
+        const tokenStudentId = parts[0];
+        if (tokenStudentId && tokenStudentId !== String(studentId)) {
+          return res.status(403).json({
+            success: false,
+            message: "Security violation: You cannot mark attendance using another student's QR code",
+          });
+        }
+      } catch (err) {
+        // Continue if non-base64 or custom string, but studentId is always locked to req.user.id
+      }
     }
 
     const { start, end } = getTodayRange();
@@ -101,11 +118,13 @@ const markAttendance = async (req, res) => {
       return res.status(500).json({ success: false, message: error.message });
     }
 
-    // Trigger confirmation email with today's menu
+    // Trigger confirmation email to student + alert email to staff team
     (async () => {
       try {
         const studentObj = req.user;
         const menuData = await fetchTodaysMenu();
+
+        // 1. Send confirmation to student with today's menu
         if (studentObj && studentObj.email) {
           await emailService.sendAttendanceConfirmationEmail({
             name: studentObj.name,
@@ -114,8 +133,19 @@ const markAttendance = async (req, res) => {
             menu: menuData,
           });
         }
+
+        // 2. Send notification email to staff
+        await emailService.sendStaffAttendanceAlertEmail({
+          staffEmail: process.env.EMAIL_USER || "staff@smartmess.ai",
+          staffName: "Mess Operations Staff",
+          studentName: studentObj.name || "Student",
+          studentEmail: studentObj.email || "",
+          mealType: mealType,
+          method: "Student Self-Mark (Mobile/Web)",
+          verifiedBy: `Student Self-Verified (${studentObj.name})`,
+        });
       } catch (e) {
-        console.error("Failed to send attendance confirmation email:", e);
+        console.error("Failed to send attendance emails:", e);
       }
     })();
 
@@ -333,10 +363,13 @@ const verifyQRAttendance = async (req, res) => {
       return res.status(500).json({ success: false, message: error.message });
     }
 
-    // Trigger confirmation email with today's menu
+    // Trigger confirmation email to student + alert to staff
     (async () => {
       try {
         const menuData = await fetchTodaysMenu();
+        const staffObj = req.user;
+
+        // 1. Send confirmation to student
         if (student && student.email) {
           await emailService.sendAttendanceConfirmationEmail({
             name: student.name,
@@ -345,8 +378,21 @@ const verifyQRAttendance = async (req, res) => {
             menu: menuData,
           });
         }
+
+        // 2. Send alert to staff member
+        const staffEmail = (staffObj && staffObj.email) ? staffObj.email : (process.env.EMAIL_USER || "staff@smartmess.ai");
+        const staffName = (staffObj && staffObj.name) ? staffObj.name : "Staff Member";
+        await emailService.sendStaffAttendanceAlertEmail({
+          staffEmail: staffEmail,
+          staffName: staffName,
+          studentName: student.name || "Student",
+          studentEmail: student.email || "",
+          mealType: effectiveMealType,
+          method: "Staff Scanner Verification (Camera/Token)",
+          verifiedBy: staffName,
+        });
       } catch (e) {
-        console.error("Failed to send verification confirmation email:", e);
+        console.error("Failed to send verification confirmation emails:", e);
       }
     })();
 

@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import toast from "react-hot-toast";
 import { motion } from "framer-motion";
@@ -12,77 +12,23 @@ import {
   Settings,
   LogOut,
   Sparkles,
+  X,
 } from "lucide-react";
 
 const menuItems = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/student/dashboard" },
   { label: "Today's Menu", icon: UtensilsCrossed, to: "/student/menu" },
   { label: "Attendance", icon: CalendarCheck, to: "/student/attendance" },
-  { label: "QR Scanner", icon: QrCode, to: "/student/scanner" },
+  { label: "QR Attendance", icon: QrCode, to: "/student/scanner" },
   { label: "Feedback", icon: MessageSquareText, to: "/student/feedback" },
   { label: "Profile", icon: User, to: "/student/profile" },
   { label: "Settings", icon: Settings, to: "/student/settings" },
 ];
 
-const itemVariants = {
-  hidden: { opacity: 0, x: -12 },
-  visible: (i) => ({
-    opacity: 1,
-    x: 0,
-    transition: { delay: i * 0.05, duration: 0.35, ease: "easeOut" },
-  }),
-};
-
-function SidebarLink({ item, index }) {
-  const { label, icon: Icon, to } = item;
-
-  return (
-    <motion.div
-      custom={index}
-      initial="hidden"
-      animate="visible"
-      variants={itemVariants}
-    >
-      <NavLink
-        to={to}
-        className={({ isActive }) =>
-          [
-            "group relative flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
-            isActive
-              ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25"
-              : "text-slate-500 hover:bg-emerald-50 hover:text-emerald-700",
-          ].join(" ")
-        }
-      >
-        {({ isActive }) => (
-          <>
-            {isActive && (
-              <motion.span
-                layoutId="sidebar-active-glow"
-                className="absolute inset-0 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500"
-                style={{ zIndex: -1 }}
-                transition={{ type: "spring", stiffness: 400, damping: 32 }}
-              />
-            )}
-            <Icon
-              size={19}
-              strokeWidth={2}
-              className={[
-                "shrink-0 transition-transform duration-200",
-                isActive ? "scale-105" : "group-hover:scale-110",
-              ].join(" ")}
-            />
-            <span>{label}</span>
-          </>
-        )}
-      </NavLink>
-    </motion.div>
-  );
-}
-
-export default function Sidebar() {
+export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
@@ -91,35 +37,69 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-slate-200/70 bg-white/70 backdrop-blur-xl">
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 px-6 py-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 shadow-md shadow-emerald-500/30">
-          <Sparkles size={18} className="text-white" strokeWidth={2.2} />
+    <aside
+      className={`fixed inset-y-0 left-0 z-40 w-64 transform flex flex-col border-r border-slate-200/80 bg-white/85 backdrop-blur-xl shadow-xl lg:shadow-none transition-transform duration-300 lg:translate-x-0 ${
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      }`}
+    >
+      {/* Logo Header */}
+      <div className="flex items-center justify-between px-6 py-6 border-b border-slate-100">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 shadow-md shadow-emerald-500/30">
+            <Sparkles size={18} className="text-white" strokeWidth={2.2} />
+          </div>
+          <span className="text-lg font-bold tracking-tight text-slate-900">
+            SmartMess <span className="text-emerald-600">AI</span>
+          </span>
         </div>
-        <span className="text-lg font-semibold tracking-tight text-slate-900">
-          SmartMess <span className="text-emerald-600">AI</span>
-        </span>
+        <button
+          type="button"
+          className="lg:hidden rounded-xl p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors"
+          onClick={() => setSidebarOpen && setSidebarOpen(false)}
+        >
+          <X size={18} />
+        </button>
       </div>
 
-      {/* Menu */}
-      <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-4">
-        {menuItems.map((item, index) => (
-          <SidebarLink key={item.to} item={item} index={index} />
-        ))}
+      {/* Menu Links */}
+      <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-4 py-4">
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = location.pathname === item.to;
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={() => setSidebarOpen && setSidebarOpen(false)}
+              className={`group flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200 ${
+                isActive
+                  ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25"
+                  : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"
+              }`}
+            >
+              <Icon
+                size={18}
+                strokeWidth={2}
+                className={`shrink-0 transition-transform duration-200 ${
+                  isActive ? "text-white scale-105" : "text-slate-400 group-hover:scale-110 group-hover:text-emerald-600"
+                }`}
+              />
+              <span>{item.label}</span>
+            </NavLink>
+          );
+        })}
       </nav>
 
       {/* Logout */}
-      <div className="border-t border-slate-200/70 px-4 py-4">
-        <motion.button
-          whileHover={{ x: 2 }}
-          whileTap={{ scale: 0.98 }}
+      <div className="border-t border-slate-100 px-4 py-4">
+        <button
+          type="button"
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-500 transition-colors duration-200 hover:bg-red-50 hover:text-red-600"
+          className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-rose-500 hover:bg-rose-50 transition-colors"
         >
-          <LogOut size={19} strokeWidth={2} />
+          <LogOut size={18} strokeWidth={2} />
           <span>Logout</span>
-        </motion.button>
+        </button>
       </div>
     </aside>
   );

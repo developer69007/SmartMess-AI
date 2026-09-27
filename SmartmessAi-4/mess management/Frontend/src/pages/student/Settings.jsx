@@ -97,48 +97,46 @@ export default function Settings() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-emerald-50/30">
-      <main className="px-4 py-6 sm:px-6 sm:py-8 lg:px-8 max-w-xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
-          <p className="mt-1 text-sm text-slate-400">Manage your SmartMess AI preferences</p>
-        </div>
+    <div className="max-w-xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
+        <p className="mt-1 text-sm text-slate-400">Manage your SmartMess AI preferences</p>
+      </div>
 
-        {sections.map((section, si) => (
-          <motion.div
-            key={section.title}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: si * 0.08 }}
-            className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm"
-          >
-            <div className="px-5 py-3 border-b border-slate-100">
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                {section.title}
-              </h3>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {section.items.map((item) => (
-                <SettingRow key={item.title} {...item} />
-              ))}
-            </div>
-          </motion.div>
-        ))}
-
-        {/* Logout */}
-        <motion.button
+      {sections.map((section, si) => (
+        <motion.div
+          key={section.title}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-red-200 bg-red-50 text-red-600 font-semibold text-sm transition-all hover:bg-red-100 hover:scale-[1.01] active:scale-[0.99]"
+          transition={{ delay: si * 0.08 }}
+          className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm"
         >
-          <LogOut className="w-4 h-4" />
-          Logout
-        </motion.button>
+          <div className="px-5 py-3 border-b border-slate-100">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {section.title}
+            </h3>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {section.items.map((item) => (
+              <SettingRow key={item.title} {...item} />
+            ))}
+          </div>
+        </motion.div>
+      ))}
 
-        <p className="text-center text-xs text-slate-400">SmartMess AI v1.0 — Hackathon Edition</p>
-      </main>
+      {/* Logout */}
+      <motion.button
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        onClick={handleLogout}
+        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-red-200 bg-red-50 text-red-600 font-semibold text-sm transition-all hover:bg-red-100 hover:scale-[1.01] active:scale-[0.99]"
+      >
+        <LogOut className="w-4 h-4" />
+        Logout
+      </motion.button>
+
+      <p className="text-center text-xs text-slate-400">SmartMess AI v1.0 — Hackathon Edition</p>
     </div>
   );
 }

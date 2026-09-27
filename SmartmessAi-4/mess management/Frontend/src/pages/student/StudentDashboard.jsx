@@ -178,9 +178,8 @@ export default function StudentDashboard() {
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-emerald-50/30">
-      <main className="space-y-8 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        {/* Stat Cards */}
+    <div className="space-y-8 max-w-7xl mx-auto">
+      {/* Stat Cards */}
         <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {statCards.map((stat, i) => (
             <StatCard key={stat.label} {...stat} delay={i * 0.08} />
@@ -298,7 +297,6 @@ export default function StudentDashboard() {
             )}
           </div>
         </section>
-      </main>
     </div>
   );
 }

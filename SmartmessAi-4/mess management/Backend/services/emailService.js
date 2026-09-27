@@ -346,8 +346,127 @@ SmartMess AI`;
   }
 };
 
+/**
+ * Sends attendance alert email to staff when a student's attendance is recorded.
+ * @param {Object} params - { staffEmail, staffName, studentName, studentEmail, mealType, method, verifiedBy }
+ */
+const sendStaffAttendanceAlertEmail = async ({
+  staffEmail,
+  staffName = "Mess Staff",
+  studentName = "Student",
+  studentEmail = "",
+  mealType = "meal",
+  method = "QR Verification",
+  verifiedBy = "Staff",
+}) => {
+  const capitalMeal = mealType.charAt(0).toUpperCase() + mealType.slice(1);
+  const nowStr = new Date().toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const subject = `[Staff Alert] Attendance Marked for ${studentName} (${capitalMeal})`;
+
+  const textBody = `[Staff Attendance Notification]
+Student: ${studentName} (${studentEmail})
+Meal: ${capitalMeal}
+Method: ${method}
+Recorded at: ${nowStr}
+Verified By: ${verifiedBy}
+
+SmartMess AI Management System`;
+
+  const htmlBody = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+      <div style="background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%); padding: 28px 24px; text-align: center;">
+        <div style="display: inline-block; background: rgba(255,255,255,0.2); padding: 6px 14px; border-radius: 20px; color: #ffffff; font-weight: 600; font-size: 12px; margin-bottom: 8px;">
+          🔔 Staff Operations Alert
+        </div>
+        <h2 style="color: #ffffff; margin: 6px 0 0 0; font-size: 20px; font-weight: 700;">Student Attendance Recorded</h2>
+        <p style="color: #e0f2fe; margin: 6px 0 0 0; font-size: 13px;">${capitalMeal} Service · ${nowStr}</p>
+      </div>
+      <div style="padding: 28px 24px; color: #334155; line-height: 1.6;">
+        <p style="font-size: 15px; margin: 0 0 16px 0;">Hello <strong>${staffName}</strong>,</p>
+        <p style="margin: 0 0 16px 0;">Attendance has been recorded in the SmartMess AI database with the following details:</p>
+        
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; margin: 16px 0;">
+          <p style="margin: 4px 0; font-size: 14px;"><strong>Student Name:</strong> ${studentName}</p>
+          <p style="margin: 4px 0; font-size: 14px;"><strong>Student Email:</strong> ${studentEmail}</p>
+          <p style="margin: 4px 0; font-size: 14px;"><strong>Meal Type:</strong> <span style="color: #0d9488; font-weight: 600;">${capitalMeal}</span></p>
+          <p style="margin: 4px 0; font-size: 14px;"><strong>Method:</strong> ${method}</p>
+          <p style="margin: 4px 0; font-size: 14px;"><strong>Timestamp:</strong> ${nowStr}</p>
+        </div>
+
+        <p style="margin: 16px 0 0 0; font-size: 13px; color: #64748b;">
+          Headcount and kitchen food waste analytics have been updated automatically.
+        </p>
+
+        <div style="margin-top: 28px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8;">
+          SmartMess AI Staff Dashboard · Automated Operations Alert
+        </div>
+      </div>
+    </div>
+  `;
+
+  if (!staffEmail) {
+    staffEmail = process.env.EMAIL_USER || "staff@smartmess.ai";
+  }
+
+  // 1. Try Resend
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const fromEmail = process.env.EMAIL_FROM || "onboarding@resend.dev";
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [staffEmail],
+          subject: subject,
+          text: textBody,
+          html: htmlBody,
+        }),
+      });
+      if (response.ok) {
+        console.log(`[Email Service] Staff alert sent to ${staffEmail} via Resend`);
+        return { success: true };
+      }
+    } catch (e) {
+      console.error("[Email Service] Resend error for staff alert:", e.message);
+    }
+  }
+
+  // 2. Try SMTP
+  const transporter = createTransporter();
+  if (transporter) {
+    try {
+      const fromAddr = process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER;
+      await transporter.sendMail({
+        from: `"SmartMess AI Ops" <${fromAddr}>`,
+        to: staffEmail,
+        subject: subject,
+        text: textBody,
+        html: htmlBody,
+      });
+      console.log(`[Email Service] Staff alert sent to ${staffEmail} via SMTP`);
+      return { success: true };
+    } catch (e) {
+      console.error("[Email Service] SMTP error for staff alert:", e.message);
+    }
+  }
+
+  // 3. Fallback
+  console.log(`[Email Service] Staff alert logged for ${staffEmail}: ${studentName} - ${capitalMeal}`);
+  return { success: true, simulated: true };
+};
+
 module.exports = {
   sendWelcomeEmail,
   sendAttendanceConfirmationEmail,
+  sendStaffAttendanceAlertEmail,
 };
+
 

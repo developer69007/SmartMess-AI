@@ -45,9 +45,8 @@ export default function Attendance() {
   }, {});
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-emerald-50/30">
-      <main className="px-4 py-6 sm:px-6 sm:py-8 lg:px-8 max-w-3xl mx-auto space-y-6">
-        {/* Header */}
+    <div className="max-w-3xl mx-auto space-y-6">
+      {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-slate-900">My Attendance</h1>
           <p className="mt-1 text-sm text-slate-400">Track your mess attendance history</p>
@@ -138,7 +137,6 @@ export default function Attendance() {
               ))}
           </div>
         )}
-      </main>
     </div>
   );
 }
