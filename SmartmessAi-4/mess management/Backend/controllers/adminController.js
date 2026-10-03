@@ -165,44 +165,51 @@ const updateStudentRole = async (req, res) => {
 const getAllStudentsAdmin = async (req, res) => {
   try {
     const { search, role } = req.query;
+
     let query = supabase
       .from(Student.TABLE_NAME)
-      .select('id, name, email, role, registration_number, email_sent, email_sent_at, email_status, created_at, updated_at')
+      .select('*')
       .order('created_at', { ascending: false });
 
-    if (search) {
-      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,registration_number.ilike.%${search}%`);
-    }
     if (role) {
       query = query.eq('role', role);
     }
 
-    let { data: students, error } = await query;
-
-    // Fallback if extended columns are missing
-    if (error && (error.code === 'PGRST204' || error.message?.includes('column'))) {
-      const retryQuery = supabase
-        .from(Student.TABLE_NAME)
-        .select('id, name, email, role, created_at, updated_at')
-        .order('created_at', { ascending: false });
-      const retryRes = await retryQuery;
-      students = retryRes.data;
-      error = retryRes.error;
-    }
+    const { data: students, error } = await query;
 
     if (error) {
+      console.error('[Admin Students] Supabase error:', error.message);
       return res.status(500).json({ success: false, message: error.message });
     }
 
-    const formatted = (students || []).map((s) => ({
-      ...s,
-      _id: s.id,
-      registrationNumber: s.registration_number || '',
-      emailSent: s.email_sent || false,
-      emailStatus: s.email_status || 'not_sent',
-    }));
+    let filtered = students || [];
+    if (search && search.trim()) {
+      const s = search.toLowerCase().trim();
+      filtered = filtered.filter(
+        (st) =>
+          st.name?.toLowerCase().includes(s) ||
+          st.email?.toLowerCase().includes(s) ||
+          st.registration_number?.toLowerCase().includes(s) ||
+          st.registrationNumber?.toLowerCase().includes(s)
+      );
+    }
+
+    const formatted = filtered.map((s) => {
+      const { password, ...rest } = s;
+      return {
+        ...rest,
+        _id: rest.id,
+        registrationNumber: rest.registration_number || rest.registrationNumber || '',
+        emailSent: rest.email_sent !== undefined ? rest.email_sent : rest.emailSent || false,
+        emailStatus: rest.email_status || rest.emailStatus || 'pending',
+        createdAt: rest.created_at || rest.createdAt || new Date().toISOString(),
+        updatedAt: rest.updated_at || rest.updatedAt || new Date().toISOString(),
+      };
+    });
+
     res.status(200).json({ success: true, count: formatted.length, students: formatted });
   } catch (error) {
+    console.error('[Admin Students] Server error:', error.message);
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
