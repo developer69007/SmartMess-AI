@@ -118,36 +118,42 @@ const markAttendance = async (req, res) => {
       return res.status(500).json({ success: false, message: error.message });
     }
 
-    // Trigger confirmation email to student + alert email to staff team
-    (async () => {
-      try {
-        const studentObj = req.user;
-        const menuData = await fetchTodaysMenu();
+    // Trigger confirmation email to student + alert email to staff team (awaited for serverless compatibility)
+    try {
+      const studentObj = req.user;
+      const menuData = await fetchTodaysMenu();
 
-        // 1. Send confirmation to student with today's menu
-        if (studentObj && studentObj.email) {
-          await emailService.sendAttendanceConfirmationEmail({
+      const emailTasks = [];
+
+      // 1. Send confirmation to student with today's menu
+      if (studentObj && studentObj.email) {
+        emailTasks.push(
+          emailService.sendAttendanceConfirmationEmail({
             name: studentObj.name,
             email: studentObj.email,
             mealType: mealType,
             menu: menuData,
-          });
-        }
+          })
+        );
+      }
 
-        // 2. Send notification email to staff
-        await emailService.sendStaffAttendanceAlertEmail({
-          staffEmail: process.env.EMAIL_USER || "staff@smartmess.ai",
+      // 2. Send notification email to staff
+      emailTasks.push(
+        emailService.sendStaffAttendanceAlertEmail({
+          staffEmail: process.env.EMAIL_USER || "smartmesscorporation@gmail.com",
           staffName: "Mess Operations Staff",
           studentName: studentObj.name || "Student",
           studentEmail: studentObj.email || "",
           mealType: mealType,
           method: "Student Self-Mark (Mobile/Web)",
           verifiedBy: `Student Self-Verified (${studentObj.name})`,
-        });
-      } catch (e) {
-        console.error("Failed to send attendance emails:", e);
-      }
-    })();
+        })
+      );
+
+      await Promise.allSettled(emailTasks);
+    } catch (e) {
+      console.error("[Attendance Mark] Failed to send attendance emails:", e);
+    }
 
     res.status(201).json({
       success: true,
@@ -413,26 +419,29 @@ const verifyQRAttendance = async (req, res) => {
       return res.status(500).json({ success: false, message: error.message });
     }
 
-    // Trigger confirmation email to student + alert to staff
-    (async () => {
-      try {
-        const menuData = await fetchTodaysMenu();
-        const staffObj = req.user;
+    // Trigger confirmation email to student + alert to staff (awaited for serverless compatibility)
+    try {
+      const menuData = await fetchTodaysMenu();
+      const staffObj = req.user;
+      const emailTasks = [];
 
-        // 1. Send confirmation to student
-        if (student && student.email) {
-          await emailService.sendAttendanceConfirmationEmail({
+      // 1. Send confirmation to student
+      if (student && student.email) {
+        emailTasks.push(
+          emailService.sendAttendanceConfirmationEmail({
             name: student.name,
             email: student.email,
             mealType: effectiveMealType,
             menu: menuData,
-          });
-        }
+          })
+        );
+      }
 
-        // 2. Send alert to staff member
-        const staffEmail = (staffObj && staffObj.email) ? staffObj.email : (process.env.EMAIL_USER || "staff@smartmess.ai");
-        const staffName = (staffObj && staffObj.name) ? staffObj.name : "Staff Member";
-        await emailService.sendStaffAttendanceAlertEmail({
+      // 2. Send alert to staff member
+      const staffEmail = (staffObj && staffObj.email) ? staffObj.email : (process.env.EMAIL_USER || "smartmesscorporation@gmail.com");
+      const staffName = (staffObj && staffObj.name) ? staffObj.name : "Staff Member";
+      emailTasks.push(
+        emailService.sendStaffAttendanceAlertEmail({
           staffEmail: staffEmail,
           staffName: staffName,
           studentName: student.name || "Student",
@@ -440,11 +449,13 @@ const verifyQRAttendance = async (req, res) => {
           mealType: effectiveMealType,
           method: "Staff Scanner Verification (Camera/Token)",
           verifiedBy: staffName,
-        });
-      } catch (e) {
-        console.error("Failed to send verification confirmation emails:", e);
-      }
-    })();
+        })
+      );
+
+      await Promise.allSettled(emailTasks);
+    } catch (e) {
+      console.error("[QR Verification] Failed to send verification confirmation emails:", e);
+    }
 
     res.status(201).json({
       success: true,

@@ -8,17 +8,30 @@ const nodemailer = require("nodemailer");
  * Creates a configured Nodemailer transport if SMTP credentials exist.
  */
 const createTransporter = () => {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || "587", 10);
-  const user = process.env.SMTP_USER || process.env.EMAIL_USER;
-  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+  const host = process.env.SMTP_HOST || "smtp.gmail.com";
+  const user = process.env.SMTP_USER || process.env.EMAIL_USER || "smartmesscorporation@gmail.com";
+  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS || "yienfkwhgufyfkfv";
 
   if (user && pass) {
+    if (host.includes("gmail") || user.includes("gmail.com")) {
+      return nodemailer.createTransport({
+        service: "gmail",
+        auth: { user, pass },
+        pool: true,
+        maxConnections: 3,
+        connectionTimeout: 8000,
+        socketTimeout: 10000,
+      });
+    }
+
+    const port = parseInt(process.env.SMTP_PORT || "587", 10);
     return nodemailer.createTransport({
-      host: host || "smtp.gmail.com",
+      host: host,
       port: port,
       secure: port === 465,
       auth: { user, pass },
+      connectionTimeout: 8000,
+      socketTimeout: 10000,
     });
   }
 
