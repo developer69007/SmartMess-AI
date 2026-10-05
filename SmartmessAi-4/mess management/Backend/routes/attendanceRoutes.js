@@ -23,6 +23,7 @@ router.get('/my', authorize("student"), getMyAttendance);
 // Staff/Admin endpoints
 router.get('/daily', authorize("staff", "admin"), getDailyAttendance);
 router.get('/verify/:qrToken', authorize("staff", "admin"), verifyQRAttendance);
+router.post('/verify', authorize("staff", "admin"), verifyQRAttendance);
 
 // Admin-only endpoints
 router.get('/analytics', authorize("admin"), getAttendanceAnalytics);

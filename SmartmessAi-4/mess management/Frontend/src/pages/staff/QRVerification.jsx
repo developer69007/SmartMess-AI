@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   QrCode, ScanLine, CheckCircle2, XCircle, Loader2,
-  Calendar, Utensils, AlertCircle, Camera, CameraOff, Sparkles, Monitor, Mail, UserCheck
+  Calendar, Utensils, AlertCircle, Camera, CameraOff, Sparkles, Monitor,
+  Mail, SwitchCamera, RefreshCw
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { Html5Qrcode } from "html5-qrcode";
@@ -19,15 +20,14 @@ function getMealTime() {
   return "dinner";
 }
 
-// Optional audio feedback for successful scan
 function playSuccessSound() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "sine";
-    osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
-    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15); // E6
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15);
     gain.gain.setValueAtTime(0.3, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
     osc.connect(gain);
@@ -39,7 +39,7 @@ function playSuccessSound() {
 
 export default function QRVerification() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("camera"); // "camera" | "counter-qr"
+  const [activeTab, setActiveTab] = useState("camera");
   const [qrInput, setQrInput] = useState("");
   const [mealType, setMealType] = useState(getMealTime);
   const [result, setResult] = useState(null);
@@ -47,9 +47,26 @@ export default function QRVerification() {
   const [stats, setStats] = useState({ success: 0, rejected: 0 });
   const [cameraOn, setCameraOn] = useState(false);
   const [cameraError, setCameraError] = useState("");
+  const [cameras, setCameras] = useState([]);
+  const [selectedCameraId, setSelectedCameraId] = useState(null);
   const html5QrcodeRef = useRef(null);
+  const isVerifyingRef = useRef(false);
 
-  // Start / stop camera
+  // Discover available cameras
+  useEffect(() => {
+    Html5Qrcode.getCameras()
+      .then((devices) => {
+        if (devices && devices.length > 0) {
+          setCameras(devices);
+          // Prefer back camera if available
+          const backCam = devices.find((d) => d.label?.toLowerCase().includes("back") || d.label?.toLowerCase().includes("environment"));
+          setSelectedCameraId(backCam ? backCam.id : devices[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Lifecycle start / stop
   useEffect(() => {
     if (activeTab === "camera" && cameraOn) {
       startCamera();
@@ -57,35 +74,80 @@ export default function QRVerification() {
       stopCamera();
     }
     return () => stopCamera();
-  }, [cameraOn, activeTab]);
+  }, [cameraOn, activeTab, selectedCameraId]);
 
   const startCamera = async () => {
     setCameraError("");
     try {
+      if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
+        await html5QrcodeRef.current.stop();
+        html5QrcodeRef.current.clear();
+      }
+
       html5QrcodeRef.current = new Html5Qrcode("staff-qr-reader");
-      await html5QrcodeRef.current.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 220, height: 220 } },
-        (decodedText) => {
-          handleVerify(null, decodedText.trim());
-          html5QrcodeRef.current?.pause();
-          setTimeout(() => html5QrcodeRef.current?.resume(), 3500);
+
+      const config = {
+        fps: 20,
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+          const edge = Math.min(viewfinderWidth, viewfinderHeight);
+          return { width: Math.floor(edge * 0.85), height: Math.floor(edge * 0.85) };
         },
-        () => {}
-      );
+        aspectRatio: 1.0,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true,
+        },
+      };
+
+      const qrSuccessCallback = (decodedText) => {
+        if (isVerifyingRef.current) return;
+        isVerifyingRef.current = true;
+        handleVerify(null, decodedText.trim()).finally(() => {
+          setTimeout(() => {
+            isVerifyingRef.current = false;
+          }, 2500);
+        });
+      };
+
+      // Try selected camera first
+      if (selectedCameraId) {
+        try {
+          await html5QrcodeRef.current.start(selectedCameraId, config, qrSuccessCallback, () => {});
+          return;
+        } catch (_) {}
+      }
+
+      // Try environment (back camera)
+      try {
+        await html5QrcodeRef.current.start({ facingMode: "environment" }, config, qrSuccessCallback, () => {});
+        return;
+      } catch (_) {}
+
+      // Fallback to user (front camera)
+      await html5QrcodeRef.current.start({ facingMode: "user" }, config, qrSuccessCallback, () => {});
     } catch (err) {
-      setCameraError("Camera access denied or not available. Please allow camera permissions.");
+      console.error("Staff Camera Start Exception:", err);
+      setCameraError("Camera access failed or permission denied. Please allow camera access in your browser settings.");
       setCameraOn(false);
     }
   };
 
   const stopCamera = async () => {
     try {
-      if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
-        await html5QrcodeRef.current.stop();
+      if (html5QrcodeRef.current) {
+        if (html5QrcodeRef.current.isScanning) {
+          await html5QrcodeRef.current.stop();
+        }
         html5QrcodeRef.current.clear();
       }
     } catch (_) {}
+  };
+
+  const switchCamera = () => {
+    if (cameras.length > 1) {
+      const currentIndex = cameras.findIndex((c) => c.id === selectedCameraId);
+      const nextIndex = (currentIndex + 1) % cameras.length;
+      setSelectedCameraId(cameras[nextIndex].id);
+    }
   };
 
   const handleVerify = async (e, scannedToken) => {
@@ -95,10 +157,17 @@ export default function QRVerification() {
     try {
       setLoading(true);
       setResult(null);
-      const res = await fetch(
-        `${API_BASE}/attendance/verify/${encodeURIComponent(token)}?mealType=${mealType}`,
-        { headers: { Authorization: `Bearer ${getToken()}` } }
-      );
+
+      // 1. Try POST /attendance/verify
+      const res = await fetch(`${API_BASE}/attendance/verify`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({ qrToken: token, mealType }),
+      });
+
       const data = await res.json();
 
       if (data.success && data.verified) {
@@ -114,12 +183,13 @@ export default function QRVerification() {
           );
         }
       } else {
-        setResult({ type: "error", message: data.message || "Verification failed" });
+        setResult({ type: "error", message: data.message || "Verification failed: Student not recognized" });
         setStats((p) => ({ ...p, rejected: p.rejected + 1 }));
         toast.error(data.message || "Verification failed");
       }
       setQrInput("");
     } catch (err) {
+      console.error("Verification Request Error:", err);
       toast.error("Server error during verification");
       setResult({ type: "error", message: "Server connection failed" });
     } finally {
@@ -216,9 +286,21 @@ export default function QRVerification() {
         <div className="space-y-4">
           <div className="rounded-3xl bg-white border border-slate-200 p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Staff Scanner Camera
-              </label>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Staff Scanner Camera
+                </label>
+                {cameras.length > 1 && cameraOn && (
+                  <button
+                    type="button"
+                    onClick={switchCamera}
+                    title="Switch camera"
+                    className="flex items-center gap-1 text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg hover:bg-slate-200"
+                  >
+                    <SwitchCamera className="w-3.5 h-3.5" /> Switch
+                  </button>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => setCameraOn((v) => !v)}
@@ -235,8 +317,8 @@ export default function QRVerification() {
             {/* Camera viewport */}
             <div
               id="staff-qr-reader"
-              className={`w-full rounded-2xl overflow-hidden bg-slate-900 transition-all ${
-                cameraOn ? "h-64" : "h-0"
+              className={`w-full rounded-2xl overflow-hidden bg-slate-900 transition-all relative ${
+                cameraOn ? "min-h-[280px]" : "h-0"
               }`}
             />
 
@@ -247,9 +329,13 @@ export default function QRVerification() {
             )}
 
             {!cameraOn && (
-              <p className="text-xs text-slate-400 text-center py-5">
-                Click <strong>Start Camera</strong> to point your device camera at a student's digital QR pass
-              </p>
+              <div className="py-6 border-2 border-dashed border-slate-200 rounded-2xl text-center space-y-2 bg-slate-50/50">
+                <Camera className="w-10 h-10 text-emerald-600 mx-auto" />
+                <p className="text-sm font-semibold text-slate-700">Scanner Ready</p>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  Click <strong>Start Camera</strong> to point your device camera at a student's digital QR pass
+                </p>
+              </div>
             )}
           </div>
 
@@ -300,9 +386,9 @@ export default function QRVerification() {
 
           <div className="p-4 bg-white border-2 border-emerald-400 rounded-3xl shadow-md inline-block">
             <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(counterQrPayload)}`}
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&ecc=M&data=${encodeURIComponent(counterQrPayload)}`}
               alt="Mess Counter QR Code"
-              className="w-52 h-52 object-contain rounded-xl"
+              className="w-60 h-60 object-contain rounded-xl"
             />
           </div>
 

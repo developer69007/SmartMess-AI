@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   QrCode, Loader2, CheckCircle2, Smartphone, Camera, CameraOff,
-  ScanLine, AlertCircle, Sparkles, Utensils
+  ScanLine, AlertCircle, Sparkles, Utensils, Copy, Check
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { Html5Qrcode } from "html5-qrcode";
@@ -20,9 +20,10 @@ export default function QRScanner() {
   const [mealType, setMealType] = useState("lunch");
   const [marking, setMarking] = useState(false);
   const [lastMarked, setLastMarked] = useState(null);
-  const [activeMode, setActiveMode] = useState("camera"); // "camera" | "my-qr"
+  const [activeMode, setActiveMode] = useState("my-qr"); // default to showing student's pass
   const [cameraOn, setCameraOn] = useState(false);
   const [cameraError, setCameraError] = useState("");
+  const [copied, setCopied] = useState(false);
   const html5QrcodeRef = useRef(null);
 
   // Detect current meal based on time
@@ -48,30 +49,46 @@ export default function QRScanner() {
   const startCamera = async () => {
     setCameraError("");
     try {
+      if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
+        await html5QrcodeRef.current.stop();
+        html5QrcodeRef.current.clear();
+      }
+
       html5QrcodeRef.current = new Html5Qrcode("student-qr-reader");
-      await html5QrcodeRef.current.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 220, height: 220 } },
-        (decodedText) => {
-          // Trigger attendance mark on successful scan
-          handleMarkAttendance(decodedText.trim());
-          // Pause camera momentarily
-          html5QrcodeRef.current?.pause();
-          setTimeout(() => html5QrcodeRef.current?.resume(), 3500);
+      const config = {
+        fps: 20,
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+          const edge = Math.min(viewfinderWidth, viewfinderHeight);
+          return { width: Math.floor(edge * 0.85), height: Math.floor(edge * 0.85) };
         },
-        () => {} // Frame error callback
-      );
+        aspectRatio: 1.0,
+      };
+
+      const qrSuccessCallback = (decodedText) => {
+        handleMarkAttendance(decodedText.trim());
+        html5QrcodeRef.current?.pause();
+        setTimeout(() => html5QrcodeRef.current?.resume(), 3500);
+      };
+
+      // Try environment first, then fallback to user
+      try {
+        await html5QrcodeRef.current.start({ facingMode: "environment" }, config, qrSuccessCallback, () => {});
+      } catch (_) {
+        await html5QrcodeRef.current.start({ facingMode: "user" }, config, qrSuccessCallback, () => {});
+      }
     } catch (err) {
       console.error("Student camera error:", err);
-      setCameraError("Camera access denied or unavailable. Please grant camera permission.");
+      setCameraError("Camera access denied or unavailable. Please grant camera permission in your browser.");
       setCameraOn(false);
     }
   };
 
   const stopCamera = async () => {
     try {
-      if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
-        await html5QrcodeRef.current.stop();
+      if (html5QrcodeRef.current) {
+        if (html5QrcodeRef.current.isScanning) {
+          await html5QrcodeRef.current.stop();
+        }
         html5QrcodeRef.current.clear();
       }
     } catch (_) {}
@@ -104,32 +121,29 @@ export default function QRScanner() {
 
   const studentId = user?.id || user?._id || "STUDENT";
   const capitalMeal = mealType.charAt(0).toUpperCase() + mealType.slice(1);
+  const studentToken = btoa(`${studentId}_${mealType}_${Date.now()}`);
+
+  const copyToken = () => {
+    navigator.clipboard.writeText(studentToken);
+    setCopied(true);
+    toast.success("QR Token copied to clipboard!");
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="max-w-lg mx-auto space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <QrCode className="w-6 h-6 text-emerald-600" /> Student Attendance Scanner
+          <QrCode className="w-6 h-6 text-emerald-600" /> Student Attendance QR & Pass
         </h1>
         <p className="mt-1 text-sm text-slate-400">
-          Open your camera to scan the mess counter QR or show your digital pass
+          Show your QR pass for staff camera to scan or open your camera to scan the mess counter
         </p>
       </div>
 
       {/* Mode Switcher Tabs */}
       <div className="grid grid-cols-2 p-1.5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-        <button
-          type="button"
-          onClick={() => setActiveMode("camera")}
-          className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-            activeMode === "camera"
-              ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md"
-              : "text-slate-600 hover:text-emerald-700"
-          }`}
-        >
-          <Camera className="w-4 h-4" /> Scan Mess QR (Camera)
-        </button>
         <button
           type="button"
           onClick={() => {
@@ -142,7 +156,18 @@ export default function QRScanner() {
               : "text-slate-600 hover:text-emerald-700"
           }`}
         >
-          <QrCode className="w-4 h-4" /> My Digital Pass QR
+          <QrCode className="w-4 h-4" /> My Digital Pass (Show to Staff)
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveMode("camera")}
+          className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+            activeMode === "camera"
+              ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md"
+              : "text-slate-600 hover:text-emerald-700"
+          }`}
+        >
+          <Camera className="w-4 h-4" /> Scan Mess QR (Camera)
         </button>
       </div>
 
@@ -170,7 +195,63 @@ export default function QRScanner() {
         </div>
       </div>
 
-      {/* Mode 1: Live Camera Scanner */}
+      {/* Mode 1: Student QR Pass for Staff to Scan */}
+      {activeMode === "my-qr" && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="rounded-3xl border border-emerald-200 bg-white p-6 sm:p-8 text-center shadow-lg shadow-emerald-50 space-y-4"
+        >
+          <div>
+            <span className="inline-block rounded-full bg-emerald-100 text-emerald-800 text-xs px-3 py-1 font-semibold mb-2">
+              ● Official Mess Digital Pass
+            </span>
+            <h2 className="text-xl font-bold text-slate-900">{user?.name || "Student"}</h2>
+            <p className="text-xs text-slate-400 mt-0.5 font-mono">{user?.email}</p>
+          </div>
+
+          {/* High-Contrast Crisp QR Code */}
+          <div className="p-4 bg-white border-2 border-emerald-400 rounded-3xl shadow-md inline-block">
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=8&ecc=M&data=${encodeURIComponent(studentToken)}`}
+              alt="Student QR Code"
+              className="w-56 h-56 object-contain rounded-2xl mx-auto"
+            />
+          </div>
+
+          <div className="flex items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={copyToken}
+              className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl font-medium transition-colors"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? "Token Copied" : "Copy Token"}
+            </button>
+          </div>
+
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => handleMarkAttendance()}
+              disabled={marking}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold text-sm shadow-lg shadow-emerald-200 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-70"
+            >
+              {marking ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> Recording Attendance...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" /> Quick Self-Mark {capitalMeal} Attendance
+                </>
+              )}
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Mode 2: Live Camera Scanner */}
       {activeMode === "camera" && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -206,7 +287,7 @@ export default function QRScanner() {
           <div
             id="student-qr-reader"
             className={`w-full rounded-2xl overflow-hidden bg-slate-900 transition-all ${
-              cameraOn ? "h-64" : "h-0"
+              cameraOn ? "min-h-[280px]" : "h-0"
             }`}
           />
 
@@ -221,7 +302,7 @@ export default function QRScanner() {
               <Camera className="w-10 h-10 mx-auto mb-2 text-emerald-600" />
               <p className="text-sm font-semibold text-slate-800">Camera is ready</p>
               <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                Click <strong>Start Camera</strong> to point your phone camera at the mess counter / staff QR code
+                Click <strong>Start Camera</strong> to point your phone camera at the mess counter QR screen
               </p>
             </div>
           )}
@@ -240,51 +321,6 @@ export default function QRScanner() {
             ) : (
               <>
                 <Smartphone className="w-4 h-4" /> Quick Mark {capitalMeal} Attendance
-              </>
-            )}
-          </button>
-        </motion.div>
-      )}
-
-      {/* Mode 2: Student QR Pass for Staff to Scan */}
-      {activeMode === "my-qr" && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="rounded-3xl border border-emerald-200 bg-white p-6 text-center shadow-lg shadow-emerald-100"
-        >
-          {/* Real Scannable QR Code */}
-          <div className="mx-auto mb-4 w-48 h-48 rounded-2xl border-2 border-emerald-400 flex flex-col items-center justify-center bg-white p-2.5 shadow-md relative overflow-hidden">
-            <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
-                btoa(`${studentId}_${mealType}_${Date.now()}`)
-              )}`}
-              alt="Real Scannable QR Code"
-              className="w-40 h-40 object-contain rounded-lg"
-            />
-          </div>
-
-          <div className="space-y-1 mb-5">
-            <p className="font-bold text-slate-900 text-lg">{user?.name || "Student"}</p>
-            <p className="text-xs font-mono text-slate-400">{studentId}</p>
-            <span className="inline-block rounded-full bg-emerald-100 px-3 py-0.5 text-xs font-medium text-emerald-700">
-              Verified Student Pass
-            </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => handleMarkAttendance()}
-            disabled={marking}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold text-sm shadow-lg shadow-emerald-200 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70"
-          >
-            {marking ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" /> Recording...
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-4 h-4" /> Confirm {capitalMeal} Attendance
               </>
             )}
           </button>
@@ -311,10 +347,10 @@ export default function QRScanner() {
           <Sparkles className="w-3.5 h-3.5 text-emerald-600" /> Attendance Instructions
         </p>
         <ul className="list-disc list-inside space-y-1 text-slate-500">
-          <li><strong>Option A (Camera):</strong> Open your camera and scan the mess counter QR code.</li>
-          <li><strong>Option B (Digital Pass):</strong> Show your QR pass to the mess staff to scan.</li>
-          <li><strong>Option C (Quick Mark):</strong> Click the "Quick Mark" button for instant check-in.</li>
-          <li>A confirmation email with today's menu will be sent instantly.</li>
+          <li><strong>Option A (Digital Pass):</strong> Show your QR code to the staff camera to get scanned.</li>
+          <li><strong>Option B (Camera):</strong> Open your camera and scan the mess counter QR code on the tablet.</li>
+          <li><strong>Option C (Quick Mark):</strong> Tap the Quick Mark button to self-record attendance.</li>
+          <li>A confirmation email with today's menu will be delivered instantly.</li>
         </ul>
       </div>
     </div>

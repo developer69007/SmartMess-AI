@@ -64,11 +64,11 @@ export default function Profile() {
           </p>
           <div className="p-3 bg-white border-2 border-emerald-300 rounded-2xl shadow-md inline-block">
             <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&ecc=M&data=${encodeURIComponent(
                 btoa(`${studentId}_lunch_${Date.now()}`)
               )}`}
               alt="Student Digital Pass"
-              className="w-36 h-36 rounded-lg"
+              className="w-40 h-40 rounded-lg"
             />
           </div>
           <p className="text-[11px] font-mono text-slate-400 mt-2">

@@ -42,11 +42,11 @@ export default function QRCard({ studentId = "SRM24CSE0187", onScan, delay = 0 }
           className="absolute left-4 right-4 h-0.5 rounded-full bg-gradient-to-r from-transparent via-emerald-500 to-transparent z-10"
         />
         <img
-          src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+          src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=6&ecc=M&data=${encodeURIComponent(
             btoa(`${studentId}_lunch`)
           )}`}
           alt="Scannable Student QR Code"
-          className="w-36 h-36 rounded-xl bg-white p-1"
+          className="w-36 h-36 rounded-xl bg-white p-1 shadow-sm"
         />
       </motion.div>
 

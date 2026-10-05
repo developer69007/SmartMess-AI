@@ -299,14 +299,14 @@ const getAttendanceAnalytics = async (req, res) => {
 // ---------------------------------------------------------------------------
 const verifyQRAttendance = async (req, res) => {
   try {
-    const { qrToken } = req.params;
-    const { mealType } = req.query;
+    const qrToken = req.body?.qrToken || req.params?.qrToken || req.query?.qrToken;
+    const mealType = req.body?.mealType || req.query?.mealType || "lunch";
 
-    if (!qrToken || !qrToken.trim()) {
+    if (!qrToken || !String(qrToken).trim()) {
       return res.status(400).json({ success: false, message: "QR token is required" });
     }
 
-    const rawToken = qrToken.trim();
+    const rawToken = String(qrToken).trim();
     let candidateIdentifiers = [];
 
     // 1. Try Base64 decoding
