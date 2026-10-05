@@ -302,23 +302,73 @@ const verifyQRAttendance = async (req, res) => {
     const { qrToken } = req.params;
     const { mealType } = req.query;
 
-    let studentId;
-    try {
-      const decoded = Buffer.from(qrToken, "base64").toString("utf8");
-      const parts = decoded.split("_");
-      studentId = parts[0];
-    } catch {
-      return res.status(400).json({ success: false, message: "Invalid QR token" });
+    if (!qrToken || !qrToken.trim()) {
+      return res.status(400).json({ success: false, message: "QR token is required" });
     }
 
-    const { data: student } = await supabase
-      .from(Student.TABLE_NAME)
-      .select("id, name, email")
-      .eq("id", studentId)
-      .maybeSingle();
+    const rawToken = qrToken.trim();
+    let candidateIdentifiers = [];
+
+    // 1. Try Base64 decoding
+    try {
+      const decoded = Buffer.from(rawToken, "base64").toString("utf8");
+      if (decoded) {
+        // Check if JSON
+        if (decoded.startsWith("{") && decoded.endsWith("}")) {
+          try {
+            const parsed = JSON.parse(decoded);
+            if (parsed.studentId) candidateIdentifiers.push(parsed.studentId);
+            if (parsed.id) candidateIdentifiers.push(parsed.id);
+            if (parsed._id) candidateIdentifiers.push(parsed._id);
+            if (parsed.email) candidateIdentifiers.push(parsed.email);
+            if (parsed.registrationNumber) candidateIdentifiers.push(parsed.registrationNumber);
+          } catch (_) {}
+        }
+        // Split by _ or | or :
+        const parts = decoded.split(/[_|:]/);
+        if (parts[0]) candidateIdentifiers.push(parts[0]);
+        candidateIdentifiers.push(decoded);
+      }
+    } catch (_) {}
+
+    // 2. Also check raw token as direct ID / Email
+    candidateIdentifiers.push(rawToken);
+    if (rawToken.includes("_")) candidateIdentifiers.push(rawToken.split("_")[0]);
+    if (rawToken.includes("|")) candidateIdentifiers.push(rawToken.split("|")[0]);
+
+    // Deduplicate candidate identifiers
+    candidateIdentifiers = [...new Set(candidateIdentifiers.filter(Boolean))];
+
+    // 3. Find student in DB by candidate IDs or emails
+    let student = null;
+    for (const ident of candidateIdentifiers) {
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ident);
+      if (isUUID) {
+        const { data } = await supabase
+          .from(Student.TABLE_NAME)
+          .select("id, name, email")
+          .eq("id", ident)
+          .maybeSingle();
+        if (data) { student = data; break; }
+      }
+      if (ident.includes("@")) {
+        const { data } = await supabase
+          .from(Student.TABLE_NAME)
+          .select("id, name, email")
+          .ilike("email", ident)
+          .maybeSingle();
+        if (data) { student = data; break; }
+      }
+      const { data: byId } = await supabase
+        .from(Student.TABLE_NAME)
+        .select("id, name, email")
+        .eq("id", ident)
+        .maybeSingle();
+      if (byId) { student = byId; break; }
+    }
 
     if (!student) {
-      return res.status(404).json({ success: false, message: "Student not found" });
+      return res.status(404).json({ success: false, message: "Student not found for this QR code" });
     }
 
     const { start, end } = getTodayRange();
@@ -327,7 +377,7 @@ const verifyQRAttendance = async (req, res) => {
     const { data: existing } = await supabase
       .from(Attendance.TABLE_NAME)
       .select("*")
-      .eq("student_id", studentId)
+      .eq("student_id", student.id)
       .gte("date", start)
       .lte("date", end)
       .eq("meal_type", effectiveMealType)
@@ -342,17 +392,17 @@ const verifyQRAttendance = async (req, res) => {
         alreadyMarked: true,
         student: formattedStudent,
         attendance: formatAttendance(existing),
-        message: "Student already attended this meal",
+        message: `Attendance was already marked for ${student.name} (${effectiveMealType}) earlier today.`,
       });
     }
 
     const { data: attendance, error } = await supabase
       .from(Attendance.TABLE_NAME)
       .insert({
-        student_id: studentId,
+        student_id: student.id,
         date: new Date().toISOString(),
         meal_type: effectiveMealType,
-        qr_token: qrToken,
+        qr_token: rawToken,
         status: "present",
         verified_by: req.user ? (req.user.id || req.user._id) : null,
       })
@@ -402,7 +452,7 @@ const verifyQRAttendance = async (req, res) => {
       alreadyMarked: false,
       student: formattedStudent,
       attendance: formatAttendance(attendance),
-      message: "Attendance verified and marked successfully",
+      message: `Attendance marked successfully for ${student.name}! Confirmation email sent to ${student.email}.`,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error: error.message });

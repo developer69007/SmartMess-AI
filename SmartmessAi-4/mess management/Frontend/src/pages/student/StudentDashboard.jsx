@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   CalendarCheck,
@@ -38,6 +39,7 @@ function SectionHeading({ title, subtitle }) {
 
 export default function StudentDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   // ─── State ───────────────────────────────────────────────────────────────
   const [todaysMenu, setTodaysMenu] = useState([]);
@@ -220,7 +222,10 @@ export default function StudentDashboard() {
           <div>
             <SectionHeading title="Mark Attendance" />
             {/* Use real student ID from auth context */}
-            <QRCard studentId={user?.id || user?._id || "LOADING"} />
+            <QRCard
+              studentId={user?.id || user?._id || "LOADING"}
+              onScan={() => navigate("/student/scanner")}
+            />
           </div>
 
           <div className="lg:col-span-2">

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   QrCode, ScanLine, CheckCircle2, XCircle, Loader2,
-  Calendar, Utensils, AlertCircle, Camera, CameraOff, Sparkles, Monitor
+  Calendar, Utensils, AlertCircle, Camera, CameraOff, Sparkles, Monitor, Mail, UserCheck
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { Html5Qrcode } from "html5-qrcode";
@@ -17,6 +17,24 @@ function getMealTime() {
   if (hour < 11) return "breakfast";
   if (hour < 16) return "lunch";
   return "dinner";
+}
+
+// Optional audio feedback for successful scan
+function playSuccessSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
+    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15); // E6
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  } catch (_) {}
 }
 
 export default function QRVerification() {
@@ -86,19 +104,23 @@ export default function QRVerification() {
       if (data.success && data.verified) {
         setResult({ type: "success", data });
         setStats((p) => ({ ...p, success: p.success + 1 }));
+        playSuccessSound();
         if (data.alreadyMarked) {
-          toast("Already marked for this meal", { icon: "ℹ️" });
+          toast(data.message || "Student already marked for this meal today", { icon: "ℹ️" });
         } else {
-          toast.success("✅ Attendance verified & marked! Confirmation emails sent.");
+          toast.success(
+            `🎉 Attendance Marked for ${data.student?.name || "Student"} (${mealType.toUpperCase()})! Confirmation email sent.`,
+            { duration: 5000 }
+          );
         }
       } else {
         setResult({ type: "error", message: data.message || "Verification failed" });
         setStats((p) => ({ ...p, rejected: p.rejected + 1 }));
-        toast.error("Verification failed");
+        toast.error(data.message || "Verification failed");
       }
       setQrInput("");
     } catch (err) {
-      toast.error("Server error");
+      toast.error("Server error during verification");
       setResult({ type: "error", message: "Server connection failed" });
     } finally {
       setLoading(false);
@@ -226,7 +248,7 @@ export default function QRVerification() {
 
             {!cameraOn && (
               <p className="text-xs text-slate-400 text-center py-5">
-                Click <strong>Start Camera</strong> to scan student digital passes with your device camera
+                Click <strong>Start Camera</strong> to point your device camera at a student's digital QR pass
               </p>
             )}
           </div>
@@ -241,7 +263,7 @@ export default function QRVerification() {
               <input
                 value={qrInput}
                 onChange={(e) => setQrInput(e.target.value)}
-                placeholder="Paste or enter student QR token..."
+                placeholder="Paste or enter student QR token / ID / email..."
                 className="flex-1 bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none font-mono"
               />
             </div>
@@ -311,19 +333,24 @@ export default function QRVerification() {
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                   <span className="font-bold text-emerald-700">
-                    {result.data.alreadyMarked ? "Already Verified" : "Attendance Verified & Recorded!"}
+                    {result.data.alreadyMarked ? "Already Verified Earlier Today" : "Attendance Verified & Marked Successfully!"}
                   </span>
                 </div>
                 {result.data.student && (
-                  <div className="rounded-2xl bg-white border border-emerald-100 p-4 space-y-2">
-                    <div className="flex items-center gap-2.5">
+                  <div className="rounded-2xl bg-white border border-emerald-100 p-4 space-y-3">
+                    <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold">
                         {result.data.student.name?.charAt(0)}
                       </div>
-                      <div>
-                        <p className="font-semibold text-slate-800">{result.data.student.name}</p>
-                        <p className="text-xs text-slate-500">{result.data.student.email}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-800 text-base truncate">{result.data.student.name}</p>
+                        <p className="text-xs text-slate-500 truncate flex items-center gap-1">
+                          <Mail className="w-3 h-3 text-emerald-600" /> {result.data.student.email}
+                        </p>
                       </div>
+                      <span className="rounded-full bg-emerald-100 text-emerald-700 text-xs px-2.5 py-1 font-semibold shrink-0">
+                        Email Sent ✓
+                      </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 pt-2 border-t border-emerald-50">
                       <div className="flex items-center gap-1.5">
